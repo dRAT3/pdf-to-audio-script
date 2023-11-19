@@ -1,6 +1,7 @@
 import asyncio
 
 import os
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -26,7 +27,7 @@ async def text_to_speech(cleaned_text, out_file_name, working_dir):
     speech_file_path = working_dir / out_file_name
 
     print(f"Transcribing: {out_file_name}")
-    response = client.audio.speech.create(
+    response = await client.audio.speech.create(
         model="tts-1",
         voice="onyx",
         input=cleaned_text
@@ -77,6 +78,32 @@ async def main():
 
     await asyncio.gather(*tasks)
 
-    # Here you can implement the reassembly logic based on file naming
+    
+    # List to hold audio segments
+    combined = []
+
+    # Function to extract the page number from the filename
+    def get_page_number(filename):
+        match = re.search(r'page_(\d+)', filename)
+        return int(match.group(1)) if match else 0
+
+    # Sort files by the page number
+    files = sorted(os.listdir(working_dir), key=get_page_number)
+
+    # Loop through sorted files and append them to the combined list
+    for file in files:
+        if file.endswith('.mp3'):
+            path = os.path.join(working_dir, file)
+            print(f"Appending {file}")
+            combined.append(AudioSegment.from_mp3(path))
+
+    # Concatenate all audio segments
+    combined_audio = sum(combined)
+    
+    out_file = working_dir / "out.mp3"
+    # Export the combined audio
+    combined_audio.export(out_file, format="mp3")
+    print(f"Combined file created: {out_file}")
+
 
 asyncio.run(main())
