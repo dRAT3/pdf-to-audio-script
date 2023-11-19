@@ -1,5 +1,6 @@
+import asyncio
 import re
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pathlib import Path
 
 import settings
@@ -10,11 +11,10 @@ def remove_extra_whitespaces(text):
     cleaned_text = re.sub(r'[ \t]+', ' ', text)
     return cleaned_text
 
-def clean_up_text_with_3_5_turbo(text):
-    client = OpenAI()
-
+async def clean_up_text_with_3_5_turbo(text):
+    client = AsyncOpenAI()
     prompt = settings.CLEANER_PROMPT + text
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": settings.SYSTEM_PROMPT},

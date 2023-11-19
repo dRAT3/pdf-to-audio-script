@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 import PyPDF2
 from pydub import AudioSegment
@@ -16,13 +16,12 @@ async def clean_page(page_text):
     page_text = helpers.remove_extra_whitespaces(page_text)
 
     if settings.USE_GPT_3_5_TO_CLEAN:
-        page_text = helpers.clean_up_text_with_3_5_turbo(page_text)
+        page_text = await helpers.clean_up_text_with_3_5_turbo(page_text)
 
     return page_text
     
 async def text_to_speech(cleaned_text, out_file_name, working_dir):
-    client = OpenAI()
-
+    client = AsyncOpenAI()
     # Define the full path for the speech file
     speech_file_path = working_dir / out_file_name
 
@@ -71,7 +70,7 @@ async def main():
                         page_number,
                         page_text,
                         settings.FILE_PATH_PDF,
-                        working_dir 
+                        working_dir,
                     ))
             tasks.append(task)
 
