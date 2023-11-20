@@ -27,11 +27,31 @@ async def text_to_speech(cleaned_text, out_file_name, working_dir):
     speech_file_path = working_dir / out_file_name
 
     print(f"Transcribing: {out_file_name}")
-    response = await client.audio.speech.create(
-        model="tts-1",
-        voice="onyx",
-        input=cleaned_text
-    )
+    try:
+        # Attempt to create and stream the audio
+        response = await client.audio.speech.create(
+            model="tts-1",
+            voice="onyx",
+            input=cleaned_text
+        )
+        response.stream_to_file(speech_file_path)
+    except APIConnectionError as e:
+        print("The server could not be reached")
+        print(e.__cause__)  # Underlying exception, likely from httpx.
+        failed_requests_counter += 1
+    except RateLimitError as e:
+        print("A 429 status code was received; we should back off a bit.")
+        failed_requests_counter += 1
+    except APIStatusError as e:
+        print("Another non-200-range status code was received")
+        print(f"Status code: {e.status_code}")
+        print(e.response)
+        failed_requests_counter += 1
+    except openai.APIError as e:
+        # General catch for any other OpenAI API errors
+        print("An unspecified OpenAI API error occurred")
+        print(e)
+        failed_requests_counter += 1
 
     response.stream_to_file(speech_file_path)
 
@@ -43,7 +63,7 @@ async def process_page(page_number, page_text, in_file_path, out_file_dir):
     
     base_name = os.path.basename(in_file_path)
     base_name, _ = os.path.splitext(base_name)
-    out_file_name = base_name + "_page_" + str(page_number) + ".mp3"
+    out_file_name = base_name + "_page_" + str(page_number + 1) + ".mp3"
 
     await text_to_speech(cleaned_text, out_file_name, out_file_dir)
 
@@ -64,7 +84,7 @@ async def main():
     with open(settings.FILE_PATH_PDF, 'rb') as file:
         reader = PyPDF2.PdfReader(file)
         
-        for page_number in range(settings.START_PAGE, settings.END_PAGE):
+        for page_number in range(settings.START_PAGE - 1, settings.END_PAGE):
             page_text = reader.pages[page_number].extract_text()
             task = asyncio.create_task(
                     process_page(
